@@ -10,7 +10,8 @@ Any external C++ application can draw on it over a local named pipe. The include
 |--------|------------|
 | [`plugin/`](plugin/) | The OBS Studio plugin (DLL). Creates the streamproof window, hosts the named pipe server, composites shapes + a shared texture via D2D on a DirectComposition swap chain. |
 | [`implementation/`](implementation/) | A tiny C++ client library (static lib, no D3D11 required) that handles the pipe handshake and exposes a clean shape API. Also launches OBS on demand. |
-| [`example/`](example/) | A ~50-line example program using the implementation library to draw an animated panel on the overlay. |
+| [`example/`](example/) | Smallest useful program against the library: connect, draw a rectangle + text, present, hold, clean up. |
+| [`Stream Chat example/`](Stream%20Chat%20example/) | A moving fake stream chat drawn on the overlay. You see the chat on your desktop, OBS capture sources don't — so you can keep chat visible without it ending up in the video. |
 | [`2pc-implementation/`](2pc-implementation/) | Experimental two-PC bridge. Streams draw commands over TCP from PC A to a server on PC B (the OBS machine), which relays them into the local plugin. Useful when the drawing app and OBS live on different machines. |
 | [`release/`](release/) | Pre-built plugin DLL + install script. Drop into `%ProgramData%\obs-studio\plugins\` (or run `install.ps1`) and OBS picks it up. |
 
@@ -36,9 +37,11 @@ flowchart LR
 
 3. For GPU-side rendering, the client asks the plugin for its pid + hwnd + overlay dimensions (`GetPluginInfo`), creates a `BGRA8` D3D11 texture with `SHARED_NTHANDLE | SHARED_KEYEDMUTEX`, `DuplicateHandle`s the shared handle into OBS's process, and sends it via `SharedTexture`. The plugin opens it with `OpenSharedResource1`, wraps it as a D2D bitmap and composites it as the background of each frame. Producer/consumer sync is a two-slot keyed mutex.
 
-4. The **example** (`example/`) is the shortest useful demo: connect, draw, present, in ~50 lines of standard C++.
+4. The **example** (`example/`) is the shortest useful demo: connect, draw, present, in ~30 lines of standard C++.
 
-5. The **2-PC implementation** (`2pc-implementation/`) is for setups where the app that wants to draw lives on a different machine than OBS. Same shape API, but tunneled over TCP; a small server on the OBS PC relays each incoming frame into the local plugin.
+5. The **stream chat example** (`Stream Chat example/`) is a practical use case: a translucent chat panel scrolling fake messages on the right side of the screen. Swap the fake producer for Twitch IRC / YouTube Live Chat / anything else and you have a hidden chat overlay for streaming.
+
+6. The **2-PC implementation** (`2pc-implementation/`) is for setups where the app that wants to draw lives on a different machine than OBS. Same shape API, but tunneled over TCP; a small server on the OBS PC relays each incoming frame into the local plugin.
 
 ## Build
 
@@ -53,7 +56,11 @@ cmake --build plugin/build --config RelWithDebInfo
 cmake -S example -B example/build -A x64
 cmake --build example/build --config Release
 
-# 3. (optional) 2-PC bridge
+# 3. stream chat example (folder name has spaces — keep the quotes)
+cmake -S "Stream Chat example" -B "Stream Chat example/build" -A x64
+cmake --build "Stream Chat example/build" --config Release
+
+# 4. (optional) 2-PC bridge
 cmake -S 2pc-implementation/server -B 2pc-implementation/server/build -A x64
 cmake -S 2pc-implementation/client -B 2pc-implementation/client/build -A x64
 cmake --build 2pc-implementation/server/build --config Release
